@@ -16,11 +16,9 @@ public class SendMsgConf {
     @Value("${send-msg-conf.max-retry-count}")
     private int maxRetryCount;
 
-    @Value("${send-msg-conf.email-account}")
-    private String emailAccount;
+    private String emailAccount = System.getenv("EMAIL_ACCOUNT");
 
-    @Value("${send-msg-conf.email-auth-code}")
-    private String emailAuthCode;
+    private String emailAuthCode = System.getenv("EMAIL_AUTH_CODE");
 
     @Value("${send-msg-conf.email-host}")
     private String emailHost;
@@ -28,12 +26,5 @@ public class SendMsgConf {
     @Value("${send-msg-conf.email-port}")
     private String emailPort;
 
-    public boolean isMysqlAsMq() {
-        return mysqlAsMq;
-    }
-
-    public boolean isOpenCache() {
-        return openCache;
-    }
 
 }
