@@ -18,11 +18,11 @@ public enum PriorityEnum {
     public static String GetPriorityStr(int priorty) {
         if (priorty == PRIORITY_LOW.getPriorty()){
             return "low";
-        }else if (priorty == PRIORITY_MIDDLE.getPriorty()){
+        } else if (priorty == PRIORITY_MIDDLE.getPriorty()){
             return "middle";
-        }else if (priorty == PRIORITY_HIGH.getPriorty()){
+        } else if (priorty == PRIORITY_HIGH.getPriorty()){
             return "high";
-        }else if (priorty == PRIORITY_RETRY.getPriorty()){
+        } else if (priorty == PRIORITY_RETRY.getPriorty()){
             return "retry";
         }
         return "low";
