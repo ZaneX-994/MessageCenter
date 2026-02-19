@@ -1,10 +1,13 @@
 package com.bytewizard.msgmate.mamager;
 
+import com.bytewizard.msgmate.common.redis.TimerMsgCache;
 import com.bytewizard.msgmate.constant.Constants;
 import com.bytewizard.msgmate.enums.MsgStatus;
 import com.bytewizard.msgmate.enums.PriorityEnum;
 import com.bytewizard.msgmate.mapper.MsgQueueMapper;
+import com.bytewizard.msgmate.mapper.MsgQueueTimerMapper;
 import com.bytewizard.msgmate.model.MsgQueueModel;
+import com.bytewizard.msgmate.model.MsgQueueTimerModel;
 import com.bytewizard.msgmate.model.dto.SendMsgReq;
 import com.bytewizard.msgmate.utils.JSONUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -20,7 +23,13 @@ import java.util.UUID;
 public class SendMsgManagerImpl implements SendMsgManager {
 
     @Autowired
-    MsgQueueMapper msgQueueMapper;
+    private MsgQueueMapper msgQueueMapper;
+
+    @Autowired
+    private MsgQueueTimerMapper msgQueueTimerMapper;
+
+    @Autowired
+    private TimerMsgCache timerMsgCache;
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -79,6 +88,27 @@ public class SendMsgManagerImpl implements SendMsgManager {
 
     @Override
     public String SendToTimer(SendMsgReq sendMsgReq) {
-        return "";
+
+        // 生成消息 ID
+        String msgId = UUID.randomUUID().toString();
+        sendMsgReq.setMsgID(msgId);
+
+        // 序列化整个请求为 String
+        String mqData = JSONUtil.toJsonString(sendMsgReq);
+
+        // 构建MsgQueueTimerModel，数据库存入的参数模型
+        MsgQueueTimerModel newMsgModel = new MsgQueueTimerModel();
+        newMsgModel.setMsgId(msgId);
+        newMsgModel.setReq(mqData);
+        newMsgModel.setSendTimestamp(sendMsgReq.getSendTimestamp());
+        newMsgModel.setStatus(MsgStatus.Pending.getStatus());
+
+        // 存入数据库
+        msgQueueTimerMapper.save(newMsgModel);
+
+        // 时间点，存入 ZSET；
+        timerMsgCache.cacheSaveMsgTimePoint(newMsgModel.getSendTimestamp());
+
+        return msgId;
     }
 }

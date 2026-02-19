@@ -11,6 +11,7 @@ import com.bytewizard.msgmate.model.dto.SendMsgReq;
 import com.bytewizard.msgmate.service.SendMsgService;
 import com.bytewizard.msgmate.service.TemplateService;
 import com.bytewizard.msgmate.tools.MsgRecordService;
+import com.bytewizard.msgmate.tools.RateLimitService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +33,9 @@ public class SendMsgServiceImpl implements SendMsgService {
     @Autowired
     private MsgRecordService msgRecordService;
 
+    @Autowired
+    private RateLimitService rateLimitService;
+
     @Override
     public String SendMsg(SendMsgReq sendMsgReq) {
 
@@ -43,33 +47,30 @@ public class SendMsgServiceImpl implements SendMsgService {
 
         // 2.查询模板&校验模板状态
         TemplateModel tp = templateService.GetTemplateWithCache(sendMsgReq.getTemplateId());
-        if(tp.getStatus() != TemplateStatus.TEMPLATE_STATUS_NORMAL.getStatus()){
+        if (tp.getStatus() != TemplateStatus.TEMPLATE_STATUS_NORMAL.getStatus()){
             throw new BusinessException(ErrorCode.TEMPLATE_STATUS_ERROR, "模板尚未准备好，检查模板状态");
         }
 
-        //判断是否为定时消息
-        boolean isTimerMsg = false;
-        if(sendMsgReq.getSendTimestamp() != null){
-            isTimerMsg =true;
-        }
+        // 判断是否为定时消息
+        boolean isTimerMsg = sendMsgReq.getSendTimestamp() != null;
 
         // 3.校验发送配额
-//        boolean allowed = rateLimitService.isRequestAllowed(tp.getSourceId(),tp.getChannel(),isTimerMsg);
-//        if(!allowed){
-//            log.warn("请求频繁，限流了，请稍后重试");
-//            throw new BusinessException(ErrorCode.RateLimit_ERROR,"请求频繁，限流了，请稍后重试");
-//        }
+        boolean allowed = rateLimitService.isRequestAllowed(tp.getSourceId(), tp.getChannel(), isTimerMsg);
+        if(!allowed){
+            log.warn("请求频繁，限流了，请稍后重试");
+            throw new BusinessException(ErrorCode.RateLimit_ERROR,"请求频繁，限流了，请稍后重试");
+        }
 
         // 4.发送到缓冲区 定时｜Mysql 缓冲｜MQ 缓冲
-        if(isTimerMsg){
+        if (isTimerMsg){
             return sendMsgManager.SendToTimer(sendMsgReq);
         }
 
         String msgId = null;
-        if(sendMsgConf.isMysqlAsMq()){
+        if (sendMsgConf.isMysqlAsMq()){
             // 发送到 Mysql
             msgId = sendMsgManager.SendToMysql(sendMsgReq);
-        }else{
+        } else {
             // 发送到 MQ
             msgId = sendMsgManager.SendToMq(sendMsgReq);
         }
